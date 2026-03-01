@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trustmaps — Algorithm Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg: #f8f9fb;
+  --surface: #ffffff;
+  --surface2: #f2f4f7;
+  --border: #e2e6ed;
+  --border2: #c8cdd8;
+  --text: #0f1219;
+  --muted: #6b7280;
+  --muted2: #9ca3af;
+  --green: #059669; --green-bg: #ecfdf5; --green-mid: #d1fae5;
+  --blue: #1d4ed8;  --blue-bg:  #eff6ff; --blue-mid:  #dbeafe;
+  --orange:#c2410c; --orange-bg:#fff7ed; --orange-mid:#fed7aa;
+  --red:   #dc2626; --red-bg:   #fef2f2; --red-mid:   #fecaca;
+  --purple:#7c3aed; --purple-bg:#f5f3ff; --purple-mid:#ddd6fe;
+  --teal:  #0f766e; --teal-bg:  #f0fdfa; --teal-mid:  #ccfbf1;
+  --yellow:#b45309; --yellow-bg:#fffbeb; --yellow-mid:#fde68a;
+  --pink:  #be185d; --pink-bg:  #fdf2f8; --pink-mid:  #fbcfe8;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+header {
+  padding: 16px 44px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky; top: 0;
+  background: rgba(248,249,251,0.97);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+}
+
+.logo { display:flex; align-items:center; gap:10px; }
+.logo-mark { width:28px; height:28px; background:var(--green); border-radius:6px; display:flex; align-items:center; justify-content:center; }
+.logo-dot  { width:9px; height:9px; background:white; border-radius:50%; }
+.logo-text { font-size:13px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--text); }
+.logo-sub  { font-size:10px; color:var(--muted); margin-top:1px; font-weight:400; }
+.hint      { font-size:12px; color:var(--muted2); }
+.h-badge   { font-size:10px; padding:3px 10px; border-radius:4px; border:1px solid var(--border2); color:var(--muted); background:white; font-weight:500; }
+
+.canvas { padding:44px 40px 80px; max-width:1480px; margin:0 auto; }
+
+/* MASTER */
+.master { text-align:center; }
+.master-box {
+  display:inline-flex; flex-direction:column; align-items:center;
+  background:var(--text); border-radius:10px; padding:22px 52px;
+}
+.master-label { font-size:9px; letter-spacing:2px; color:#7b8abd; margin-bottom:5px; font-weight:600; text-transform:uppercase; }
+.master-title { font-size:19px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
+.master-sub   { font-size:11px; color:#8892b0; margin-top:4px; }
+
+.v-line { width:1px; height:24px; background:var(--border2); margin:0 auto; }
+
+.trigger-row { display:flex; justify-content:center; gap:8px; }
+.trigger-node { display:flex; align-items:center; gap:7px; background:white; border:1px solid var(--border); border-radius:6px; padding:7px 14px; font-size:11px; color:var(--muted); font-weight:500; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+.tdot { width:6px; height:6px; border-radius:50%; background:var(--green); }
+
+/* PHASE LEGEND */
+.phase-row { display:flex; gap:8px; justify-content:flex-end; margin-bottom:12px; }
+.phase-pill { font-size:10px; font-weight:600; padding:3px 11px; border-radius:4px; display:flex; align-items:center; gap:5px; border:1px solid transparent; }
+.pdot { width:5px; height:5px; border-radius:50%; }
+
+/* SECTION LABEL */
+.section-label { font-size:9px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; font-weight:600; display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.section-label::before, .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+.section-sep { grid-column:1/-1; margin:14px 0 2px; }
+
+/* GRID */
+.engines-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+
+/* ENGINE CARD */
+.engine {
+  background:white; border-radius:8px; border:1px solid var(--border);
+  overflow:hidden; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  transition:box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+}
+.engine:hover { box-shadow:0 4px 12px rgba(0,0,0,0.09); transform:translateY(-1px); border-color:var(--border2); }
+.engine.open  { grid-column:span 2; border-color:var(--ec); box-shadow:0 0 0 1.5px var(--ec), 0 4px 16px rgba(0,0,0,0.1); }
+
+.ebar { height:3px; }
+.eheader { padding:13px 14px 11px; display:flex; align-items:flex-start; gap:10px; }
+.eicon { width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+.einfo { flex:1; min-width:0; }
+.ename    { font-size:12px; font-weight:600; color:var(--text); line-height:1.3; }
+.etagline { font-size:10px; color:var(--muted); margin-top:2px; line-height:1.4; font-weight:400; }
+.emeta    { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+.ephase   { font-size:8px; letter-spacing:0.6px; padding:2px 6px; border-radius:3px; font-weight:700; text-transform:uppercase; }
+.etoggle  { width:17px; height:17px; border-radius:50%; border:1px solid var(--border2); display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--muted2); font-weight:600; transition:all 0.15s; }
+.engine.open .etoggle { border-color:var(--ec); color:var(--ec); }
+
+.rpanel { display:none; padding:0 14px 12px; border-top:1px solid var(--border); }
+.engine.open .rpanel { display:block; }
+.rtitle { font-size:8px; letter-spacing:1.5px; color:var(--muted2); text-transform:uppercase; font-weight:600; margin:9px 0 7px; }
+.rule { display:flex; align-items:flex-start; gap:9px; padding:6px 9px; border-radius:4px; background:var(--ebg); border-left:2px solid var(--ec); margin-bottom:4px; }
+.rtag { font-size:8px; letter-spacing:0.5px; color:var(--ec); font-weight:700; flex-shrink:0; margin-top:1px; text-transform:uppercase; min-width:54px; }
+.rtext { font-size:10.5px; color:var(--muted); line-height:1.5; }
+.rtext strong { color:var(--text); font-weight:600; }
+
+/* THEMES */
+.tg { --ec:var(--green);  --ebg:var(--green-bg);  }
+.tb { --ec:var(--blue);   --ebg:var(--blue-bg);   }
+.to { --ec:var(--orange); --ebg:var(--orange-bg); }
+.tr { --ec:var(--red);    --ebg:var(--red-bg);    }
+.tp { --ec:var(--purple); --ebg:var(--purple-bg); }
+.tt { --ec:var(--teal);   --ebg:var(--teal-bg);   }
+.ty { --ec:var(--yellow); --ebg:var(--yellow-bg); }
+.tk { --ec:var(--pink);   --ebg:var(--pink-bg);   }
+
+.tg .ebar { background:var(--green);  } .tb .ebar { background:var(--blue);   }
+.to .ebar { background:var(--orange); } .tr .ebar { background:var(--red);    }
+.tp .ebar { background:var(--purple); } .tt .ebar { background:var(--teal);   }
+.ty .ebar { background:var(--yellow); } .tk .ebar { background:var(--pink);   }
+
+.tg .eicon { background:var(--green-bg);  } .tb .eicon { background:var(--blue-bg);   }
+.to .eicon { background:var(--orange-bg); } .tr .eicon { background:var(--red-bg);    }
+.tp .eicon { background:var(--purple-bg); } .tt .eicon { background:var(--teal-bg);   }
+.ty .eicon { background:var(--yellow-bg); } .tk .eicon { background:var(--pink-bg);   }
+
+.tg .ephase { background:var(--green-mid);  color:#065f46; }
+.tb .ephase { background:var(--blue-mid);   color:#1e3a8a; }
+.to .ephase { background:var(--orange-mid); color:#7c2d12; }
+.tr .ephase { background:var(--red-mid);    color:#991b1b; }
+.tp .ephase { background:var(--purple-mid); color:#4c1d95; }
+.tt .ephase { background:var(--teal-mid);   color:#134e4a; }
+.ty .ephase { background:var(--yellow-mid); color:#78350f; }
+.tk .ephase { background:var(--pink-mid);   color:#831843; }
+
+/* OUTPUT */
+.flow-sep { display:flex; align-items:center; justify-content:center; margin:28px 0 20px; position:relative; }
+.flow-sep::before { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:var(--border); }
+.flow-sep-label { background:var(--text); color:white; border-radius:4px; padding:5px 16px; font-size:9px; letter-spacing:1.5px; font-weight:600; text-transform:uppercase; z-index:1; }
+
+.out-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.out-node { background:white; border:1px solid var(--border); border-radius:7px; padding:13px 15px; display:flex; align-items:center; gap:11px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+.oicon { width:32px; height:32px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.olabel { font-size:12px; font-weight:600; color:var(--text); }
+.osub   { font-size:10px; color:var(--muted); margin-top:1px; }
+
+@keyframes fu { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.engine { animation:fu 0.3s ease both; }
+.engine:nth-child(1){animation-delay:.03s} .engine:nth-child(2){animation-delay:.06s}
+.engine:nth-child(3){animation-delay:.09s} .engine:nth-child(4){animation-delay:.12s}
+.engine:nth-child(5){animation-delay:.15s} .engine:nth-child(6){animation-delay:.18s}
+.engine:nth-child(7){animation-delay:.21s} .engine:nth-child(8){animation-delay:.24s}
+.engine:nth-child(9){animation-delay:.27s} .engine:nth-child(10){animation-delay:.30s}
+.engine:nth-child(11){animation-delay:.33s} .engine:nth-child(12){animation-delay:.36s}
+.engine:nth-child(13){animation-delay:.39s} .engine:nth-child(14){animation-delay:.42s}
+.engine:nth-child(15){animation-delay:.45s} .engine:nth-child(16){animation-delay:.48s}
+.engine:nth-child(17){animation-delay:.51s}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark"><div class="logo-dot"></div></div>
+    <div>
+      <div class="logo-text">Trustmaps</div>
+      <div class="logo-sub">Algorithm Architecture</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <span class="hint">Click any engine to expand its rules</span>
+    <div class="h-badge">v1.0 · Confidential · 2026</div>
+  </div>
+</header>
+
+<div class="canvas">
+
+  <div class="master">
+    <div class="master-box">
+      <div class="master-label">Master Algorithm</div>
+      <div class="master-title">Trustmaps Core Engine</div>
+      <div class="master-sub">Job Close Event → Verified Live Map Activity</div>
+    </div>
+  </div>
+
+  <div class="v-line"></div>
+  <div class="trigger-row">
+    <div class="trigger-node"><div class="tdot"></div>CRM Webhook</div>
+    <div class="trigger-node"><div class="tdot"></div>CSV Upload</div>
+    <div class="trigger-node"><div class="tdot"></div>Manual Entry</div>
+    <div class="trigger-node"><div class="tdot"></div>API Push</div>
+  </div>
+  <div class="v-line" style="margin-bottom:20px;"></div>
+
+  <div class="phase-row">
+    <div class="phase-pill" style="background:#d1fae5;color:#065f46;border-color:#a7f3d0;"><div class="pdot" style="background:#059669;"></div>MVP — Build First</div>
+    <div class="phase-pill" style="background:#dbeafe;color:#1e3a8a;border-color:#bfdbfe;"><div class="pdot" style="background:#1d4ed8;"></div>V2 — Intelligence</div>
+    <div class="phase-pill" style="background:#ddd6fe;color:#4c1d95;border-color:#c4b5fd;"><div class="pdot" style="background:#7c3aed;"></div>V3 — Moat</div>
+  </div>
+
+  <div class="engines-grid">
+
+    <div class="section-sep"><div class="section-label">01 — Ingestion & Normalization</div></div>
+
+    <div class="engine tg" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">📥</div>
+        <div class="einfo"><div class="ename">Job Ingestion Engine</div><div class="etagline">Front door. Standardizes all raw job data.</div></div>
+        <div class="emeta"><div class="ephase">MVP</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Event</div><div class="rtext"><strong>Trigger types:</strong> CRM webhook, CSV upload, manual entry, API push — each tagged with source_type</div></div>
+        <div class="rule"><div class="rtag">Data</div><div class="rtext"><strong>Required fields:</strong> contractor_id, client_phone, job_type, claimed_completion_date — missing = rejected</div></div>
+        <div class="rule"><div class="rtag">Dedup</div><div class="rtext"><strong>Duplicate check:</strong> Same phone + same contractor + same week → rejected silently</div></div>
+        <div class="rule"><div class="rtag">Audit</div><div class="rtext"><strong>Raw data hash stored:</strong> CRM deletion cannot erase the Trustmaps record</div></div>
+        <div class="rule"><div class="rtag">Media</div><div class="rtext"><strong>Info gathered:</strong> job type, cost range (optional), photos (optional), neighborhood, client phone, CRM source</div></div>
+      </div>
+    </div>
+
+    <div class="engine tb" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">📅</div>
+        <div class="einfo"><div class="ename">Date Normalization Engine</div><div class="etagline">Entry date ≠ display date. Always.</div></div>
+        <div class="emeta"><div class="ephase">MVP</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Trust</div><div class="rtext"><strong>CRM + date within 7 days:</strong> Trust claimed date fully. Confidence: 95</div></div>
+        <div class="rule"><div class="rtag">Flag</div><div class="rtext"><strong>CRM + date 8–60 days old:</strong> Use claimed date, add 'retroactive' flag. Confidence: 70</div></div>
+        <div class="rule"><div class="rtag">CSV</div><div class="rtext"><strong>CSV upload:</strong> Use declared date, flag 'csv-declared'. Confidence: 60</div></div>
+        <div class="rule"><div class="rtag">Manual</div><div class="rtext"><strong>No date provided:</strong> Use entry_date − 1 day. Confidence: 40</div></div>
+        <div class="rule"><div class="rtag">Limit</div><div class="rtext"><strong>More than 60 days old:</strong> Job valid but suppressed from live map. Profile page only</div></div>
+        <div class="rule"><div class="rtag">Reject</div><div class="rtext"><strong>Future date:</strong> Job rejected entirely. Contractor notified</div></div>
+      </div>
+    </div>
+
+    <div class="engine to" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">📊</div>
+        <div class="einfo"><div class="ename">Burst Smoothing Engine</div><div class="etagline">Sunday batch closers. Distributes pins naturally.</div></div>
+        <div class="emeta"><div class="ephase">MVP</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Detect</div><div class="rtext"><strong>Burst trigger:</strong> Same contractor submits >3 jobs within 60 seconds → batch mode</div></div>
+        <div class="rule"><div class="rtag">Small</div><div class="rtext"><strong>N ≤ 3 jobs:</strong> Release all immediately. No smoothing needed</div></div>
+        <div class="rule"><div class="rtag">Medium</div><div class="rtext"><strong>N = 4–8 jobs:</strong> Release 3 now. Distribute rest over 72 hours, max 1 per 18–24h window</div></div>
+        <div class="rule"><div class="rtag">Large</div><div class="rtext"><strong>N > 8 jobs:</strong> Release 3 now. Distribute rest over 7 days, max 2/day, oldest date first</div></div>
+        <div class="rule"><div class="rtag">UX</div><div class="rtext"><strong>Dashboard vs Map:</strong> Contractor sees all jobs in dashboard immediately. Only map display is staggered</div></div>
+        <div class="rule"><div class="rtag">Auto</div><div class="rtext"><strong>Profile tag:</strong> Once 'batch-closer' tag is set by Engine 07, smoothing applies automatically every time</div></div>
+      </div>
+    </div>
+
+    <div class="engine tt" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">📍</div>
+        <div class="einfo"><div class="ename">Geolocation Engine</div><div class="etagline">Privacy-safe pinning. Far jobs rewarded.</div></div>
+        <div class="emeta"><div class="ephase">MVP</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Privacy</div><div class="rtext"><strong>Exact address never stored or displayed.</strong> All coordinates fuzzed to neighborhood centroid ±500m</div></div>
+        <div class="rule"><div class="rtag">Source</div><div class="rtext"><strong>Address sources:</strong> CRM field → client postal code → contractor declared zone (fallback)</div></div>
+        <div class="rule"><div class="rtag">Far Job</div><div class="rtext"><strong>Job far from contractor's base city:</strong> Rewarded with 'wide coverage' tag — signals range and credibility</div></div>
+        <div class="rule"><div class="rtag">Region</div><div class="rtext"><strong>Job in a different city:</strong> Creates secondary cluster, scored independently from home base</div></div>
+        <div class="rule"><div class="rtag">Missing</div><div class="rtext"><strong>No location data:</strong> Job counts toward score but cannot appear on map. Profile only</div></div>
+      </div>
+    </div>
+
+    <div class="section-sep"><div class="section-label">02 — Trust & Confirmation</div></div>
+
+    <div class="engine tg" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">💬</div>
+        <div class="einfo"><div class="ename">SMS Confirmation Engine</div><div class="etagline">The trust backbone. Client-verified, not self-reported.</div></div>
+        <div class="emeta"><div class="ephase">MVP</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Timing</div><div class="rtext"><strong>Send 24–48h after job date.</strong> Not immediately — homeowner calmer, payment settled</div></div>
+        <div class="rule"><div class="rtag">Format</div><div class="rtext"><strong>One question only:</strong> "Did [Name] finish your [job type] this week? Reply YES or NO." No links, no login</div></div>
+        <div class="rule"><div class="rtag">Window</div><div class="rtext"><strong>72-hour response window.</strong> One follow-up if no response. After that → no_response status</div></div>
+        <div class="rule"><div class="rtag">YES</div><div class="rtext"><strong>YES path:</strong> Confirmed → optional photo prompt 10 min later → optional review 10 min after. Never forced</div></div>
+        <div class="rule"><div class="rtag">NO</div><div class="rtext"><strong>NO path:</strong> Forwarded to Dispute Engine immediately. Pin hidden pending resolution</div></div>
+        <div class="rule"><div class="rtag">Limit</div><div class="rtext"><strong>Same phone, same contractor:</strong> Max 1 confirmation per 60 days (90 days for seasonal services)</div></div>
+        <div class="rule"><div class="rtag">IP Check</div><div class="rtext"><strong>Link opened from contractor IP:</strong> Confirmation voided silently. No warning to prevent workarounds</div></div>
+      </div>
+    </div>
+
+    <div class="engine tb" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">🔬</div>
+        <div class="einfo"><div class="ename">Information Analysis Engine</div><div class="etagline">Validates photos, reviews, and data quality.</div></div>
+        <div class="emeta"><div class="ephase">V2</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Photo</div><div class="rtext"><strong>Photos:</strong> Max 5/job. JPG/PNG/HEIC, 10MB, auto-compressed to 1200px. Blank/duplicate/low-res → rejected</div></div>
+        <div class="rule"><div class="rtag">Review</div><div class="rtext"><strong>Review text:</strong> Max 280 chars. No URLs or phone numbers. Profanity filter flags, doesn't auto-reject</div></div>
+        <div class="rule"><div class="rtag">Fraud</div><div class="rtext"><strong>Copy-paste review:</strong> Identical to prior submission → rejected. Same IP as contractor → voided</div></div>
+        <div class="rule"><div class="rtag">Attribution</div><div class="rtext"><strong>All media labeled "by client"</strong> with job type and neighborhood. Client name never shown</div></div>
+        <div class="rule"><div class="rtag">Weight</div><div class="rtext"><strong>Data quality bonus:</strong> Photo + confirmed review = +5pts · Photo only = +2pts · Review only = +2pts</div></div>
+        <div class="rule"><div class="rtag">Control</div><div class="rtext"><strong>Contractor rights:</strong> Cannot delete client media. Can flag for review only</div></div>
+      </div>
+    </div>
+
+    <div class="engine tr" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">⚖️</div>
+        <div class="einfo"><div class="ename">Dispute Resolution Engine</div><div class="etagline">Handles NO responses and job conflicts fairly.</div></div>
+        <div class="emeta"><div class="ephase">MVP</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">First NO</div><div class="rtext"><strong>Immediate action:</strong> Pin hidden from map. Contractor notified. 7-day resolution window opens</div></div>
+        <div class="rule"><div class="rtag">Resolve</div><div class="rtext"><strong>Contractor resolves:</strong> Triggers new SMS to client. Confirmed → pin reappears with 'resolved' badge</div></div>
+        <div class="rule"><div class="rtag">Ignored</div><div class="rtext"><strong>No response in 7 days:</strong> Pin stays hidden. Single isolated NO = zero score impact</div></div>
+        <div class="rule"><div class="rtag">Pattern</div><div class="rtext"><strong>2+ NOs in 90 days:</strong> Account flagged. Visibility score capped at 60 until resolved manually</div></div>
+        <div class="rule"><div class="rtag">Suspend</div><div class="rtext"><strong>3+ NOs in 90 days:</strong> Account suspended pending manual review</div></div>
+        <div class="rule"><div class="rtag">Protect</div><div class="rtext"><strong>Competitor abuse:</strong> Denials only count if phone matches CRM record. Unmatched denials ignored</div></div>
+      </div>
+    </div>
+
+    <div class="engine tr" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">🛡️</div>
+        <div class="einfo"><div class="ename">Anti-Gaming Engine</div><div class="etagline">Silent to honest contractors. Ruthless to bad actors.</div></div>
+        <div class="emeta"><div class="ephase">V2</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Phone</div><div class="rtext"><strong>Uniqueness:</strong> Same phone confirms same contractor max 1× per 60 days</div></div>
+        <div class="rule"><div class="rtag">Match</div><div class="rtext"><strong>Phone match required:</strong> Must match CRM record. No match = no badge, job still counted</div></div>
+        <div class="rule"><div class="rtag">Timestamp</div><div class="rtext"><strong>Timestamp cluster:</strong> 5+ jobs with identical completion time (to the minute) → all held for review</div></div>
+        <div class="rule"><div class="rtag">Retroactive</div><div class="rtext"><strong>Retroactive bomb:</strong> 10+ jobs in one session spread over 30 days → fraud flag raised</div></div>
+        <div class="rule"><div class="rtag">Farm</div><div class="rtext"><strong>Confirmation farm:</strong> Same phone confirms 3+ different contractors in 24h → all flagged</div></div>
+        <div class="rule"><div class="rtag">VoIP</div><div class="rtext"><strong>Temp/VoIP numbers:</strong> Carrier check on all phones. Flagged numbers need extra verification</div></div>
+        <div class="rule"><div class="rtag">New Acct</div><div class="rtext"><strong>Account spike:</strong> Under 30 days old + 15+ jobs in week 1 → held for review</div></div>
+        <div class="rule"><div class="rtag">Score</div><div class="rtext"><strong>Fraud score 0–100:</strong> 0–30 allow · 31–60 hold + notify · 61–80 suppress · 81+ suspend</div></div>
+      </div>
+    </div>
+
+    <div class="section-sep"><div class="section-label">03 — Scoring & Intelligence</div></div>
+
+    <div class="engine tg" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">⚡</div>
+        <div class="einfo"><div class="ename">Live Activity Score Engine</div><div class="etagline">The master 0–100 score. Everything feeds this.</div></div>
+        <div class="emeta"><div class="ephase">MVP</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">40%</div><div class="rtext"><strong>Confirmed job volume:</strong> Last 14 days ×2 + days 15–30 ×1. Normalized to 40pts max</div></div>
+        <div class="rule"><div class="rtag">25%</div><div class="rtext"><strong>Confirmation rate:</strong> Confirmed ÷ total submitted over 90 days. 80%+ = full 25pts. Linear below</div></div>
+        <div class="rule"><div class="rtag">20%</div><div class="rtext"><strong>Recency:</strong> 0–3d=20pts · 4–7d=16 · 8–14d=11 · 15–21d=6 · 22–30d=2 · 30d+=0</div></div>
+        <div class="rule"><div class="rtag">10%</div><div class="rtext"><strong>Hyperlocal signal:</strong> 3+ jobs within 1km in 30 days = 10pts · 2 jobs = 6pts · 1 = 2pts</div></div>
+        <div class="rule"><div class="rtag">5%</div><div class="rtext"><strong>Client media:</strong> 2+ client photos = 5pts · 1 photo = 2pts</div></div>
+        <div class="rule"><div class="rtag">Freeze</div><div class="rtext"><strong>Off-season override:</strong> Score frozen at last active value. No recalculation until season resumes</div></div>
+        <div class="rule"><div class="rtag">Floor</div><div class="rtext"><strong>Score floor:</strong> Active subscribers never drop below 5 — always remain visible</div></div>
+      </div>
+    </div>
+
+    <div class="engine to" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">⏳</div>
+        <div class="einfo"><div class="ename">Time Decay Engine</div><div class="etagline">Past activity doesn't protect you forever.</div></div>
+        <div class="emeta"><div class="ephase">MVP</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Base</div><div class="rtext"><strong>Base decay:</strong> −2.0 points per calendar day of zero activity during active season</div></div>
+        <div class="rule"><div class="rtag">Weekend</div><div class="rtext"><strong>Weekend pause:</strong> Engine 07 shows contractor doesn't work weekends → decay pauses Sat + Sun</div></div>
+        <div class="rule"><div class="rtag">Batch</div><div class="rtext"><strong>Batch-closer pause:</strong> After each batch submission, decay pauses 10 days to account for their cycle</div></div>
+        <div class="rule"><div class="rtag">Seasonal</div><div class="rtext"><strong>Off-season freeze:</strong> Engine 08 returns off_season → decay = 0. Score completely frozen</div></div>
+        <div class="rule"><div class="rtag">Recovery</div><div class="rtext"><strong>Recovery:</strong> Each confirmed job = +15pts + recency component fully reset</div></div>
+        <div class="rule"><div class="rtag">Dispute</div><div class="rtext"><strong>Dispute acceleration:</strong> Active dispute → decay doubles to −4pts/day until resolved</div></div>
+      </div>
+    </div>
+
+    <div class="engine tt" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">🌿</div>
+        <div class="einfo"><div class="ename">Seasonal Intelligence Engine</div><div class="etagline">Roofer in January ≠ plumber in January.</div></div>
+        <div class="emeta"><div class="ephase">V2</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">PAI</div><div class="rtext"><strong>Peer Activity Index:</strong> % of same-trade contractors in region with 1+ confirmed jobs in last 14 days</div></div>
+        <div class="rule"><div class="rtag">Active</div><div class="rtext"><strong>AA ≥ EAI×0.5 + PAI>50%:</strong> Active season → normal scoring. No seasonal adjustment</div></div>
+        <div class="rule"><div class="rtag">Under</div><div class="rtext"><strong>AA < EAI×0.5 + PAI>50%:</strong> Underperforming in active season → decay begins, pin greys out</div></div>
+        <div class="rule"><div class="rtag">Off-Season</div><div class="rtext"><strong>AA=0 + PAI<30%:</strong> Most peers also quiet → seasonal mode after 14 days. Decay pauses</div></div>
+        <div class="rule"><div class="rtag">Resume</div><div class="rtext"><strong>Reactivation:</strong> 2+ confirmed jobs → active mode resumes, score rebuilds from frozen value</div></div>
+        <div class="rule"><div class="rtag">Display</div><div class="rtext"><strong>Badges:</strong> off_season = "❄️ Off-Season" · transition = "🌱 Season Starting Soon" · active = none</div></div>
+      </div>
+    </div>
+
+    <div class="engine tp" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">🧠</div>
+        <div class="einfo"><div class="ename">Contractor Behavior Engine</div><div class="etagline">Learns each contractor's rhythm. Judges them on it.</div></div>
+        <div class="emeta"><div class="ephase">V2</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Pattern</div><div class="rtext"><strong>Batch-closer detection:</strong> >60% of jobs entered on same weekday over 90 days → tag 'batch-closer:[day]'</div></div>
+        <div class="rule"><div class="rtag">Baseline</div><div class="rtext"><strong>Frequency baseline:</strong> Rolling 30-day average job count becomes personal benchmark for Engines 10 and 11</div></div>
+        <div class="rule"><div class="rtag">Days</div><div class="rtext"><strong>Active days:</strong> Which weekdays contractor typically works. Calibrates the decay weekend pause</div></div>
+        <div class="rule"><div class="rtag">Peak</div><div class="rtext"><strong>Peak season:</strong> Months with >2× average activity after 6+ months of data = peak_season_months[]</div></div>
+        <div class="rule"><div class="rtag">Tags</div><div class="rtext"><strong>Profile tags assigned:</strong> batch-closer · daily-closer · seasonal · semi-seasonal · year-round · high-volume</div></div>
+        <div class="rule"><div class="rtag">New</div><div class="rtext"><strong>New contractor:</strong> First 30 days → trade-category defaults applied. No personal profile yet</div></div>
+        <div class="rule"><div class="rtag">Update</div><div class="rtext"><strong>Recalculated:</strong> Every 7 days on rolling window. Profile always learning</div></div>
+      </div>
+    </div>
+
+    <div class="section-sep"><div class="section-label">04 — Map Display & Signals</div></div>
+
+    <div class="engine ty" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">📡</div>
+        <div class="einfo"><div class="ename">Hyperlocal Signal Engine</div><div class="etagline">Neighborhood repetition = the digital yard sign.</div></div>
+        <div class="emeta"><div class="ephase">V2</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Cluster</div><div class="rtext"><strong>Cluster detection:</strong> 3+ confirmed job centroids within 1.5km in last 30 days = cluster active</div></div>
+        <div class="rule"><div class="rtag">Score</div><div class="rtext"><strong>Cluster score:</strong> 3+ jobs = 10pts · 2 jobs = 6pts · 1 = 2pts. Fed to Live Activity Score Engine (10%)</div></div>
+        <div class="rule"><div class="rtag">Label</div><div class="rtext"><strong>Map display:</strong> Cluster active → label near pin: "3 jobs in this area this month"</div></div>
+        <div class="rule"><div class="rtag">Proximity</div><div class="rtext"><strong>Homeowner proximity boost:</strong> Searcher within 2km of cluster → contractor surfaces higher in map layer</div></div>
+        <div class="rule"><div class="rtag">Multi</div><div class="rtext"><strong>Multi-cluster:</strong> Contractor can have clusters in multiple neighborhoods, each scored independently</div></div>
+      </div>
+    </div>
+
+    <div class="engine tt" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">🏡</div>
+        <div class="einfo"><div class="ename">Locate Your Home Engine</div><div class="etagline">Matches homeowner location to nearby contractor activity.</div></div>
+        <div class="emeta"><div class="ephase">MVP</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Default</div><div class="rtext"><strong>On map open:</strong> Default to homeowner's detected location via browser geolocation or IP estimate</div></div>
+        <div class="rule"><div class="rtag">Radius</div><div class="rtext"><strong>Activity radius:</strong> Show confirmed jobs within 5km by default. User can expand to 15km or 50km</div></div>
+        <div class="rule"><div class="rtag">Label</div><div class="rtext"><strong>Neighborhood label:</strong> Every pin shows neighborhood name, not address. "Rosemont" not "1234 St-Denis"</div></div>
+        <div class="rule"><div class="rtag">Counter</div><div class="rtext"><strong>Proximity counter:</strong> "X confirmed jobs within 2km of you" shown prominently on map</div></div>
+        <div class="rule"><div class="rtag">Rank</div><div class="rtext"><strong>Proximity ranking:</strong> Contractors with confirmed jobs closest to homeowner ranked first in visible layer</div></div>
+        <div class="rule"><div class="rtag">Privacy</div><div class="rtext"><strong>Homeowner location:</strong> Never stored. Session only. Used solely for sorting visible pins</div></div>
+      </div>
+    </div>
+
+    <div class="engine tp" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">🔀</div>
+        <div class="einfo"><div class="ename">Review Distribution Engine</div><div class="etagline">How and when activity appears on the map.</div></div>
+        <div class="emeta"><div class="ephase">V2</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Order</div><div class="rtext"><strong>Feed order:</strong> Most recent confirmed jobs first. Reviews attached to their job pin</div></div>
+        <div class="rule"><div class="rtag">Cap</div><div class="rtext"><strong>Live feed cap:</strong> Max 3 score-boosting events per contractor per 7-day rolling window</div></div>
+        <div class="rule"><div class="rtag">Dedup</div><div class="rtext"><strong>Same phone, same contractor:</strong> Can only submit review once per 60 days</div></div>
+        <div class="rule"><div class="rtag">Google</div><div class="rtext"><strong>Google review sync:</strong> Matching Google review auto-counted as confirmed. No double-asking homeowner</div></div>
+        <div class="rule"><div class="rtag">Window</div><div class="rtext"><strong>Map vs Profile:</strong> Map shows last 14 days. Profile shows all confirmed jobs (last 90 days)</div></div>
+        <div class="rule"><div class="rtag">No Rank</div><div class="rtext"><strong>No leaderboard language.</strong> "3 confirmed jobs in your area." Never "Top Contractor" or "Best Rated"</div></div>
+      </div>
+    </div>
+
+    <div class="engine tb" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">🗺️</div>
+        <div class="einfo"><div class="ename">Density Compensation Engine</div><div class="etagline">Keeps the map alive in sparse early markets.</div></div>
+        <div class="emeta"><div class="ephase">V2</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Normal</div><div class="rtext"><strong>Normal mode:</strong> 20+ active contractors, 5+ jobs/week in region. Standard scoring, nothing changes</div></div>
+        <div class="rule"><div class="rtag">Sparse</div><div class="rtext"><strong>Sparse mode (5–19 active):</strong> Lower glow threshold temporarily. Widen cluster radius to 3km</div></div>
+        <div class="rule"><div class="rtag">Seeding</div><div class="rtext"><strong>Seeding mode (<5 active):</strong> Show 90-day history instead of 14. City-wide confirmed job counter shown</div></div>
+        <div class="rule"><div class="rtag">Message</div><div class="rtext"><strong>Seeding message:</strong> "Trustmaps is growing in your area. X contractors verified so far."</div></div>
+        <div class="rule"><div class="rtag">Auto</div><div class="rtext"><strong>Auto-graduation:</strong> Region crosses threshold → mode upgrades automatically, glow threshold tightens</div></div>
+        <div class="rule"><div class="rtag">Hard Rule</div><div class="rtext"><strong>Zero fabricated activity. Zero inflated scores.</strong> Display parameters only — never data</div></div>
+      </div>
+    </div>
+
+    <div class="section-sep"><div class="section-label">05 — Engagement & Retention</div></div>
+
+    <div class="engine tk" onclick="t(this)">
+      <div class="ebar"></div>
+      <div class="eheader">
+        <div class="eicon">🔔</div>
+        <div class="einfo"><div class="ename">FOMO Engine</div><div class="etagline">Visibility pressure that keeps contractors engaged.</div></div>
+        <div class="emeta"><div class="ephase">V3</div><div class="etoggle">+</div></div>
+      </div>
+      <div class="rpanel">
+        <div class="rtitle">Rules</div>
+        <div class="rule"><div class="rtag">Trigger 1</div><div class="rtext"><strong>Competitor goes active:</strong> Inactive 10+ days + competitor crosses score 75 → "A competitor just confirmed a job in your area"</div></div>
+        <div class="rule"><div class="rtag">Trigger 2</div><div class="rtext"><strong>Score decay warning:</strong> Dropped 15+ pts in 7 days → "Your visibility dropped. Add a recent job to recover"</div></div>
+        <div class="rule"><div class="rtag">Trigger 3</div><div class="rtext"><strong>Low confirmation rate:</strong> Rate below 40% → "Only X% of your jobs are client-confirmed. Confirmed jobs rank higher"</div></div>
+        <div class="rule"><div class="rtag">Trigger 4</div><div class="rtext"><strong>Season reactivation:</strong> 30 days before historical peak start → "Your season is starting. Reactivate before competitors"</div></div>
+        <div class="rule"><div class="rtag">Trigger 5</div><div class="rtext"><strong>New competitor:</strong> New contractor subscribes in same trade + region → "A new [trade] joined Trustmaps in your area"</div></div>
+        <div class="rule"><div class="rtag">Trigger 6</div><div class="rtext"><strong>Competitor cluster:</strong> Competitor forms cluster in your historical neighborhood → alert sent</div></div>
+        <div class="rule"><div class="rtag">Cap</div><div class="rtext"><strong>Frequency cap:</strong> Max 2 push/week per contractor · Max 1 email/week · Always factual, never aggressive</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="flow-sep">
+    <div class="flow-sep-label">Output to Map</div>
+  </div>
+
+  <div class="section-label">Final Output — Pin States</div>
+
+  <div class="out-grid">
+    <div class="out-node">
+      <div class="oicon" style="background:#ecfdf5;">🟢</div>
+      <div><div class="olabel">Glowing Pin</div><div class="osub">Score 75–100 · Confirmed last 7 days · Pulse animation</div></div>
+    </div>
+    <div class="out-node">
+      <div class="oicon" style="background:#eff6ff;">🔵</div>
+      <div><div class="olabel">Active Pin</div><div class="osub">Score 50–74 · Solid green · No pulse</div></div>
+    </div>
+    <div class="out-node">
+      <div class="oicon" style="background:#f9fafb;">⚪</div>
+      <div><div class="olabel">Fading Pin</div><div class="osub">Score 5–49 · Grey · "Last active X days ago"</div></div>
+    </div>
+    <div class="out-node">
+      <div class="oicon" style="background:#f0fdfa;">❄️</div>
+      <div><div class="olabel">Seasonal Pin</div><div class="osub">Off-season detected · Score frozen · Badge shown</div></div>
+    </div>
+    <div class="out-node">
+      <div class="oicon" style="background:#fffbeb;">📍</div>
+      <div><div class="olabel">Neighborhood Cluster Label</div><div class="osub">"3 confirmed jobs in Rosemont this month"</div></div>
+    </div>
+    <div class="out-node">
+      <div class="oicon" style="background:#fdf2f8;">🔔</div>
+      <div><div class="olabel">Contractor Alert</div><div class="osub">Push / email · Max 2/week · Factual tone</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function t(el) {
+  const wasOpen = el.classList.contains('open');
+  document.querySelectorAll('.engine.open').forEach(e => {
+    e.classList.remove('open');
+    const b = e.querySelector('.etoggle');
+    if (b) b.textContent = '+';
+  });
+  if (!wasOpen) {
+    el.classList.add('open');
+    const b = el.querySelector('.etoggle');
+    if (b) b.textContent = '×';
+    setTimeout(() => el.scrollIntoView({ behavior:'smooth', block:'nearest' }), 50);
+  }
+}
+</script>
+</body>
+</html>
